@@ -4,6 +4,7 @@
   http://www.frogtoss.com/labs
 */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
@@ -292,9 +293,46 @@ nfdresult_t NFD_SaveDialog( const nfdchar_t *filterList,
 
     /* Build the filter list */    
     AddFiltersToDialog(dialog, filterList);
-
+    
+    //If we were provided a file path, set the folder path and default filename. Otherwise, just set the folder path
+    size_t defaultPathLen = strlen(defaultPath);
+    if (defaultPathLen > 0U) {
+        char * folderPath = calloc(defaultPathLen + 10U, 1U); //0-initialized so we don't have to append NULL char after copying to buffer
+        char * filename   = calloc(defaultPathLen + 10U, 1U); //0-initialized so we don't have to append NULL char after copying to buffer
+        if ((folderPath != NULL) && (filename != NULL)) {
+            const char * lastChar = defaultPath + (defaultPathLen - 1U);
+            
+            if ((*lastChar == '\\') || (*lastChar == '/'))
+                strcpy(folderPath, defaultPath); //The last character is a separator - defaultPath is a folder path
+            else {
+                const char * lastSep = lastChar;
+                while ((lastSep != defaultPath) && (*lastSep != '\\') && (*lastSep != '/'))
+                    lastSep = lastSep - 1U;
+               
+                //lastSep now points to the final separator. If the final component contains a dot then it is a filename.
+                if (strchr(lastSep, '.') != NULL) {
+                    strncpy(folderPath, defaultPath, lastSep - defaultPath);
+                    strcpy(filename, lastSep + 1U);
+                }
+                else
+                    strcpy(folderPath, defaultPath); //No dot in final component - defaultPath is a folder path
+            }
+            
+            //Set default path and name as provided
+            if (folderPath[0] != '\0')
+                SetDefaultPath(dialog, folderPath);
+            if (filename[0] != '\0')
+                gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), filename);
+        }
+        
+        if (folderPath != NULL)
+            free(folderPath);
+        if (filename != NULL)
+            free(filename);
+    }
+    
     /* Set the default path */
-    SetDefaultPath(dialog, defaultPath);
+    //SetDefaultPath(dialog, defaultPath);
     
     result = NFD_CANCEL;    
     if ( gtk_dialog_run( GTK_DIALOG(dialog) ) == GTK_RESPONSE_ACCEPT )
